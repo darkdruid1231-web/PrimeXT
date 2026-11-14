@@ -23,12 +23,18 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 
 enable_testing()
 
-# primext_add_test( <name> SOURCES <files...> [LIBS <libs...>] )
+# The root of the repository, for the include directories and scripts of the tests
+set( PRIMEXT_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/.. )
+
+# primext_add_test( <name> SOURCES <files...> [INCLUDES <dirs...>] [LIBS <libs...>] )
+#
+# A unit test: a standalone program with its own main(). SOURCES are relative to
+# this directory, INCLUDES are the directories of the headers it checks.
 function( primext_add_test name )
-	cmake_parse_arguments( ARG "" "" "SOURCES;LIBS" ${ARGN} )
+	cmake_parse_arguments( ARG "" "" "SOURCES;INCLUDES;LIBS" ${ARGN} )
 
 	add_executable( ${name} ${ARG_SOURCES} )
-	target_include_directories( ${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} )
+	target_include_directories( ${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${ARG_INCLUDES} )
 
 	if( ARG_LIBS )
 		target_link_libraries( ${name} PRIVATE ${ARG_LIBS} )
@@ -37,18 +43,26 @@ function( primext_add_test name )
 	add_test( NAME ${name} COMMAND ${name} )
 endfunction()
 
-primext_add_test( test_smoke SOURCES test_smoke.cpp )
+# primext_add_script_test( <name> SCRIPT <file> [ARGS <-Dvar=value...>] )
+#
+# A test that is a "cmake -P" script, it doesn't need a compiler. SCRIPT is
+# relative to this directory.
+function( primext_add_script_test name )
+	cmake_parse_arguments( ARG "" "SCRIPT" "ARGS" ${ARGN} )
 
-# the vcpkg PhysX port must not depend on patches downloaded from GitHub,
-# see vcpkg_ports/physx and vcpkg_ports/check_physx_port.cmake
-add_test( NAME vcpkg_physx_port
-	COMMAND ${CMAKE_COMMAND}
-		-DREPO_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/..
-		-P ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_ports/check_physx_port.cmake )
+	get_filename_component( script ${ARG_SCRIPT} ABSOLUTE BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR} )
+	add_test( NAME ${name} COMMAND ${CMAKE_COMMAND} ${ARG_ARGS} -P ${script} )
+endfunction()
 
-# the overlay Android triplets must build the vcpkg dependencies against the same
-# API level as the app, see vcpkg_triplets and vcpkg_ports/check_android_triplets.cmake
-add_test( NAME vcpkg_android_triplets
-	COMMAND ${CMAKE_COMMAND}
-		-DREPO_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/..
-		-P ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_ports/check_android_triplets.cmake )
+# Every "<something>.test.cmake" file in this directory registers its own tests
+# with the functions above, so adding a test means adding files and never editing
+# this one. That keeps independent changes from conflicting over the same lines.
+#
+#   tests/fs_openmode.test.cmake:
+#     primext_add_test( test_fs_openmode
+#         SOURCES test_fs_openmode.cpp
+#         INCLUDES ${PRIMEXT_ROOT}/utils/common )
+file( GLOB test_registrations CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.test.cmake )
+foreach( registration ${test_registrations} )
+	include( ${registration} )
+endforeach()
