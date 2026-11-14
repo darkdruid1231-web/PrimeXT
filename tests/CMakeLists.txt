@@ -23,12 +23,16 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 
 enable_testing()
 
-# primext_add_test( <name> SOURCES <files...> [LIBS <libs...>] )
+# primext_add_test( <name> SOURCES <files...> [INCLUDES <dirs...>] [LIBS <libs...>] )
 function( primext_add_test name )
-	cmake_parse_arguments( ARG "" "" "SOURCES;LIBS" ${ARGN} )
+	cmake_parse_arguments( ARG "" "" "SOURCES;INCLUDES;LIBS" ${ARGN} )
 
 	add_executable( ${name} ${ARG_SOURCES} )
 	target_include_directories( ${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} )
+
+	if( ARG_INCLUDES )
+		target_include_directories( ${name} PRIVATE ${ARG_INCLUDES} )
+	endif()
 
 	if( ARG_LIBS )
 		target_link_libraries( ${name} PRIVATE ${ARG_LIBS} )
@@ -38,3 +42,10 @@ function( primext_add_test name )
 endfunction()
 
 primext_add_test( test_smoke SOURCES test_smoke.cpp )
+
+# the helpers of the filesystem layer are header-only, so that they can be
+# checked without building the whole filesystem
+primext_add_test( test_fs_openmode
+	SOURCES test_fs_openmode.cpp
+	INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../utils/common
+)
