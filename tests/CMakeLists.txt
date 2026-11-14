@@ -38,3 +38,8 @@ function( primext_add_test name )
 endfunction()
 
 primext_add_test( test_smoke SOURCES test_smoke.cpp )
+
+# cmake -P scripts, they don't need a compiler
+add_test( NAME test_library_naming
+	COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/cmake/library_naming_test.cmake
+)
